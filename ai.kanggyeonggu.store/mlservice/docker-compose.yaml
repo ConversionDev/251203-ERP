@@ -1,0 +1,34 @@
+# ============================================================================
+# MLService 독립 실행용 Docker Compose
+# ============================================================================
+# MSA 구조에 맞춰 mlservice만 독립적으로 실행
+#
+# 사용 예시:
+#   cd ai.kanggyeonggu.store/mlservice
+#   docker compose up -d
+#
+# 포트:
+#   - 9002: MLService API
+# ============================================================================
+
+services:
+  mlservice:
+    build:
+      context: ..
+      dockerfile: mlservice/Dockerfile
+    container_name: mlservice
+    ports:
+      - "9002:9002"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./app:/app/app
+      - ../common:/app/common
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+

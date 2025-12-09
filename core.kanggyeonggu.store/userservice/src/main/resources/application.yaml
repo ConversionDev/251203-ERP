@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: user-service
+  
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+  
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  
+  # Database 설정
+  datasource:
+    url: jdbc:postgresql://${NEON_DEV_HOST}:${NEON_DEV_PORT:5432}/${NEON_DEV_DATABASE}?sslmode=${NEON_DEV_SSL_MODE:require}
+    username: ${NEON_DEV_USER}
+    password: ${NEON_DEV_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+  
+  # Redis 설정
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}
+
+server:
+  port: 8082
+
+# ============================================================================
+# JWT 설정
+# ============================================================================
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# ============================================================================
+# Actuator 설정
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# ============================================================================
+# Logging 설정
+# ============================================================================
+logging:
+  level:
+    root: INFO
+    store.kanggyoenggu: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

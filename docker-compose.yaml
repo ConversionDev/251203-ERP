@@ -1,0 +1,177 @@
+# ============================================================================
+# 로컬 통합 실행용 Docker Compose 설정
+# ============================================================================
+# 이 파일은 로컬 개발 환경에서 모든 서비스를 통합 관리합니다.
+#
+# 사용 예시:
+#   - 기본 스택 실행:
+#     docker compose up
+#
+#   - 백그라운드 실행:
+#     docker compose up -d
+#
+#   - 중지:
+#     docker compose down
+#
+# 주의사항:
+#   1. Docker Desktop이 실행 중이어야 합니다.
+#   2. 환경 변수 설정: 루트에 .env 파일 생성하고 값 입력
+# ============================================================================
+
+services:
+  # ===================
+  # Edge Layer (API Gateway)
+  # ===================
+  gateway:
+    build:
+      context: ./api.kanggyeonggu.store
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - kanggyeonggu-network
+    depends_on:
+      - oauthservice
+      - user-service
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: on-failure
+
+  # ===================
+  # Infrastructure Layer
+  # ===================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - kanggyeonggu-network
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
+
+  # ===================
+  # Service Layer - Core
+  # ===================
+  oauthservice:
+    build:
+      context: ./core.kanggyeonggu.store/oauthservice
+      dockerfile: Dockerfile
+    container_name: oauthservice
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+    networks:
+      - kanggyeonggu-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8081/actuator/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: on-failure
+
+  user-service:
+    build:
+      context: ./core.kanggyeonggu.store/userservice
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8082:8082"
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+    networks:
+      - kanggyeonggu-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8082/actuator/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: on-failure
+
+  # ===================
+  # Service Layer - AI
+  # ===================
+  chatbot-service:
+    build:
+      context: ./ai.kanggyeonggu.store
+      dockerfile: chatbotservice/Dockerfile
+    container_name: chatbot-service
+    ports:
+      - "9002:9002"
+    env_file:
+      - .env
+    networks:
+      - kanggyeonggu-network
+    restart: on-failure
+
+  crawler-service:
+    build:
+      context: ./ai.kanggyeonggu.store
+      dockerfile: crawlerservice/Dockerfile
+    container_name: crawler-service
+    ports:
+      - "9001:9001"
+    env_file:
+      - .env
+    networks:
+      - kanggyeonggu-network
+    restart: on-failure
+
+  mlservice:
+    build:
+      context: ./ai.kanggyeonggu.store
+      dockerfile: mlservice/Dockerfile
+    container_name: mlservice
+    ports:
+      - "9003:9002"
+    env_file:
+      - .env
+    networks:
+      - kanggyeonggu-network
+    volumes:
+      - ./ai.kanggyeonggu.store/mlservice/app/models:/app/app/models
+    restart: on-failure
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9002/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  kanggyeonggu-network:
+    driver: bridge
+    name: kanggyeonggu-network
+
+volumes:
+  redis-data:
+    driver: local

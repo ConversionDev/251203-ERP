@@ -1,0 +1,136 @@
+spring:
+  application:
+    name: gateway
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+    
+    gateway:
+      routes:
+        # OAuth Service 라우팅
+        - id: oauth-service
+          uri: http://oauthservice:8081
+          predicates:
+            - Path=/auth/**
+        
+        # OAuth2 Google 콜백 라우팅
+        - id: oauth2-google
+          uri: http://oauthservice:8081
+          predicates:
+            - Path=/oauth2/google/**
+          filters:
+            - RewritePath=/oauth2/google/(?<segment>.*), /auth/google/$\{segment}
+        
+        # OAuth2 Naver 콜백 라우팅
+        - id: oauth2-naver
+          uri: http://oauthservice:8081
+          predicates:
+            - Path=/oauth2/naver/**
+          filters:
+            - RewritePath=/oauth2/naver/(?<segment>.*), /auth/naver/$\{segment}
+        
+        # OAuth2 Kakao 콜백 라우팅
+        - id: oauth2-kakao
+          uri: http://oauthservice:8081
+          predicates:
+            - Path=/oauth2/kakao/**
+          filters:
+            - RewritePath=/oauth2/kakao/(?<segment>.*), /auth/kakao/$\{segment}
+        
+        # User API 라우팅
+        - id: user-api
+          uri: http://user-service:8082
+          predicates:
+            - Path=/api/users/**
+        
+        # User Service Health Check
+        - id: user-service-health
+          uri: http://user-service:8082
+          predicates:
+            - Path=/user/**
+        
+        # AI Crawler Service 라우팅
+        - id: ai-crawler
+          uri: http://crawler-service:9001
+          predicates:
+            - Path=/ai/crawler/**
+          filters:
+            - StripPrefix=1
+        
+        # AI Chatbot Service 라우팅
+        - id: ai-chatbot
+          uri: http://chatbot-service:9002
+          predicates:
+            - Path=/ai/chatbot/**
+          filters:
+            - StripPrefix=1
+        
+        # ML Service 라우팅 (Titanic 분석)
+        - id: ml-service
+          uri: http://mlservice:9002
+          predicates:
+            - Path=/api/ml/**
+          filters:
+            - RewritePath=/api/ml/(?<segment>.*), /${segment}
+      
+      # CORS 설정
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://localhost:4000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+            maxAge: 3600
+
+server:
+  port: 8080
+
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET}
+
+springdoc:
+  api-docs:
+    path: /docs/api-docs
+  swagger-ui:
+    path: /docs
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    use-root-path: false
+    persist-authorization: true
+    show-actuator: false
+    default-flat-param-object: true
+    writer-with-order-by-keys: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,metrics
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# 로깅 설정
+logging:
+  level:
+    root: INFO
+    store.kanggyeonggu: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.loadbalancer: INFO
+    io.micrometer: WARN
+    io.micrometer.core.instrument: WARN
