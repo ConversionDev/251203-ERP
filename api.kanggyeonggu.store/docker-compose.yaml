@@ -1,0 +1,70 @@
+# ============================================================================
+# Gateway Service Docker Compose 설정
+# ============================================================================
+# API Gateway + ML Service 통합 실행용
+#
+# 사용 예시:
+#   cd api.kanggyeonggu.store
+#   docker compose up -d
+#
+# 포함 서비스:
+#   - Gateway (8080)
+#   - ML Service (9002)
+# ============================================================================
+
+services:
+  # ===================
+  # API Gateway
+  # ===================
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../.env
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-default-secret-key}
+    networks:
+      - gateway-network
+    depends_on:
+      - mlservice
+    restart: on-failure
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # ===================
+  # ML Service
+  # ===================
+  mlservice:
+    build:
+      context: ../ai.kanggyeonggu.store
+      dockerfile: mlservice/Dockerfile
+    container_name: mlservice
+    ports:
+      - "9002:9002"
+    env_file:
+      - ../.env
+    networks:
+      - gateway-network
+    volumes:
+      - ../ai.kanggyeonggu.store/mlservice/app:/app/app
+      - ../ai.kanggyeonggu.store/common:/app/common
+    restart: on-failure
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9002/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  gateway-network:
+    driver: bridge
+    name: gateway-network

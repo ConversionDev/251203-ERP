@@ -14,12 +14,27 @@ from common.middleware import LoggingMiddleware
 from common.utils import setup_logging
 from app.titanic.router import router as titanic_router
 from app.customer.router import router as customer_router
+from app.seoul_crime.save.seoul_router import router as seoul_router
 
 # 설정 로드
 config = TitanicServiceConfig()
 
 # 로깅 설정
 logger = setup_logging(config.service_name)
+
+# 루트 로거도 설정하여 모든 모듈의 로그가 출력되도록 함
+import logging
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+if not root_logger.handlers:
+    handler = logging.StreamHandler()
+    # 더 깔끔한 로그 포맷
+    formatter = logging.Formatter(
+        '%(asctime)s | %(levelname)-8s | %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -94,6 +109,10 @@ app = FastAPI(
             "name": "Customer",
             "description": "B2B ERP 고객 관리, 통계, 분석 및 이탈 예측 ML 기능",
         },
+        {
+            "name": "Seoul",
+            "description": "서울시 범죄, CCTV, 인구 데이터 조회 및 분석 기능",
+        },
     ]
 )
 
@@ -105,9 +124,10 @@ app.add_middleware(LoggingMiddleware)
 
 # Titanic 라우터 추가
 app.include_router(titanic_router, prefix="/titanic")
-
 # Customer 라우터 추가
 app.include_router(customer_router, prefix="/customer")
+# Seoul 라우터 추가
+app.include_router(seoul_router, prefix="/seoul")
 
 
 # ============================================================================
