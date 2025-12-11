@@ -60,6 +60,7 @@ class KakaoMapSingleton:
             "query": address
         }
         
+        logger.info(f"🔍 카카오 맵 API 호출 시작: {address}")
         try:
             response = requests.get(url, headers=headers, params=params)
             
@@ -80,15 +81,19 @@ class KakaoMapSingleton:
                 doc = result['documents'][0]
                 # 키워드 검색 결과는 place_name, address_name, road_address_name 등을 포함
                 address_name = doc.get('address_name', '') or doc.get('road_address_name', '')
+                lat = float(doc.get('y', 0))
+                lng = float(doc.get('x', 0))
+                logger.info(f"✅ 카카오 맵 API 성공: {address} → {address_name} (위도: {lat}, 경도: {lng})")
                 return [{
                     "formatted_address": address_name,
                     "geometry": {
                         "location": {
-                            "lat": float(doc.get('y', 0)),
-                            "lng": float(doc.get('x', 0))
+                            "lat": lat,
+                            "lng": lng
                         }
                     }
                 }]
+            logger.warning(f"⚠️ 카카오 맵 API 결과 없음: {address}")
             return []
             
         except requests.exceptions.RequestException as e:

@@ -12,6 +12,14 @@ COPY common ./common
 COPY mlservice/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 한글 폰트 설치 (나눔고딕)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    fonts-nanum \
+    fontconfig \
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -fv
+
 # 앱 복사 (train.csv 포함)
 COPY mlservice/app ./app
 

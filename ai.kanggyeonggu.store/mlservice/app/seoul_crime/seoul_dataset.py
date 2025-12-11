@@ -13,7 +13,7 @@ class SeoulDataset:
     
     def __init__(self):
         """초기화 - 경로 설정"""
-        self._dname = str((Path(__file__).parent.parent / "data").resolve())
+        self._dname = str((Path(__file__).parent / "data").resolve())
         self._sname = str((Path(__file__).parent).resolve())
 
     @property

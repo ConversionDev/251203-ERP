@@ -24,7 +24,7 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - ../.env
+      - ../.env  # 프로젝트 루트의 .env 파일 사용
     environment:
       - JWT_SECRET=${JWT_SECRET:-default-secret-key}
     networks:
@@ -50,7 +50,7 @@ services:
     ports:
       - "9002:9002"
     env_file:
-      - ../.env
+      - ../.env  # 프로젝트 루트의 .env 파일 사용 (카카오 API 키 등)
     networks:
       - gateway-network
     volumes:

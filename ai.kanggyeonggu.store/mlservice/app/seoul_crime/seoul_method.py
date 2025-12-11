@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from pandas import DataFrame
-from app.seoul_crime.save.seoul_dataset import SeoulDataset
-from app.seoul_crime.save.kakao_map_singleton import KakaoMapSingleton
+from app.seoul_crime.seoul_dataset import SeoulDataset
+from app.seoul_crime.kakao_map_singleton import KakaoMapSingleton
 import re
 
 logger = logging.getLogger(__name__)
@@ -20,8 +20,8 @@ class SeoulMethod(object):
     # DS -> DF
     def csv_to_df(self, fname: str) -> pd.DataFrame:
         """CSV 파일을 읽어와서 DataFrame으로 반환"""
-        # 경로 직접 지정 (titanic 방식과 동일)
-        base_path = Path(__file__).parent.parent / "data"
+        # 경로 직접 지정: seoul_crime/data 디렉토리
+        base_path = Path(__file__).parent / "data"
         csv_path = base_path / fname
         if not csv_path.exists():
             raise FileNotFoundError(f"파일을 찾을 수 없습니다: {csv_path}")
@@ -29,8 +29,8 @@ class SeoulMethod(object):
 
     def xlsx_to_df(self, fname: str) -> pd.DataFrame:
         """XLSX 파일을 읽어와서 DataFrame으로 반환"""
-        # 경로 직접 지정 (titanic 방식과 동일)
-        base_path = Path(__file__).parent.parent / "data"
+        # 경로 직접 지정: seoul_crime/data 디렉토리
+        base_path = Path(__file__).parent / "data"
         xlsx_path = base_path / fname
         if not xlsx_path.exists():
             raise FileNotFoundError(f"파일을 찾을 수 없습니다: {xlsx_path}")
@@ -46,8 +46,8 @@ class SeoulMethod(object):
     
     def xls_to_df(self, fname: str) -> pd.DataFrame:
         """XLS 파일을 읽어와서 DataFrame으로 반환"""
-        # 경로 직접 지정
-        base_path = Path(__file__).parent.parent / "data"
+        # 경로 직접 지정: seoul_crime/data 디렉토리
+        base_path = Path(__file__).parent / "data"
         xls_path = base_path / fname
         if not xls_path.exists():
             raise FileNotFoundError(f"파일을 찾을 수 없습니다: {xls_path}")

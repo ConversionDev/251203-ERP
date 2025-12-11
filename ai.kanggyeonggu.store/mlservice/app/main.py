@@ -14,7 +14,9 @@ from common.middleware import LoggingMiddleware
 from common.utils import setup_logging
 from app.titanic.router import router as titanic_router
 from app.customer.router import router as customer_router
-from app.seoul_crime.save.seoul_router import router as seoul_router
+from app.seoul_crime.seoul_router import router as seoul_router
+from app.us_unemplayment.rotuer import router as usa_router
+from app.nlp.nlp_rotuer import router as nlp_router
 
 # 설정 로드
 config = TitanicServiceConfig()
@@ -113,6 +115,14 @@ app = FastAPI(
             "name": "Seoul",
             "description": "서울시 범죄, CCTV, 인구 데이터 조회 및 분석 기능",
         },
+        {
+            "name": "USA",
+            "description": "미국 주별 실업률 데이터 시각화 및 지도 생성 기능",
+        },
+        {
+            "name": "NLP",
+            "description": "자연어 처리 및 워드클라우드 생성 기능",
+        },
     ]
 )
 
@@ -128,6 +138,10 @@ app.include_router(titanic_router, prefix="/titanic")
 app.include_router(customer_router, prefix="/customer")
 # Seoul 라우터 추가
 app.include_router(seoul_router, prefix="/seoul")
+# USA 라우터 추가
+app.include_router(usa_router, prefix="/usa")
+# NLP 라우터 추가
+app.include_router(nlp_router, prefix="/nlp")
 
 
 # ============================================================================
