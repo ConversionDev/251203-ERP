@@ -12,11 +12,12 @@ COPY common ./common
 COPY mlservice/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 한글 폰트 설치 (나눔고딕)
+# 한글 폰트 설치 (나눔고딕) 및 Java JDK 설치 (KoNLPy용)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     fonts-nanum \
     fontconfig \
+    default-jdk \
     && rm -rf /var/lib/apt/lists/* \
     && fc-cache -fv
 

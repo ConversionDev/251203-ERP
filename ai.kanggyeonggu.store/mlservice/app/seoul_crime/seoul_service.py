@@ -328,6 +328,9 @@ class SeoulService:
         self.method.dataset.crime = crime_df_with_pop  # 인구수 포함된 데이터프레임 저장
         self.method.dataset.pop = pop_clean  # 정리된 인구 데이터 저장
         
+        # 히트맵과 동일한 데이터를 사용하기 위해 인스턴스 변수로 저장
+        self.crime_df_with_pop = crime_df_with_pop
+        
         logger.info(f"CCTV 데이터: {cctv_df.shape}")
         logger.info(f"Crime 데이터: {crime_df_with_pop.shape} (인구수 포함)")
         logger.info(f"Pop 데이터: {pop_clean.shape}")
@@ -788,8 +791,9 @@ class SeoulService:
             # 2. CSV에 인구수가 있는지 확인
             if '인구' in crime_df.columns:
                 logger.info("✅ CSV에 인구수 컬럼이 있습니다. CSV의 인구수 사용")
-                # CSV의 인구수 사용
-                merged_df = crime_df[['자치구'] + [col for col in crime_df.columns if '발생' in col] + ['인구']].copy()
+                # CSV의 인구수 사용 (검거 데이터도 포함)
+                crime_cols = ['자치구'] + [col for col in crime_df.columns if '발생' in col or '검거' in col] + ['인구']
+                merged_df = crime_df[crime_cols].copy()
                 
                 # 인구 데이터를 숫자로 변환 (쉼표 제거)
                 def str_to_float(val):
@@ -803,6 +807,7 @@ class SeoulService:
                 
                 merged_df['인구'] = merged_df['인구'].apply(str_to_float)
                 logger.info(f"CSV 인구수 사용. 데이터 shape: {merged_df.shape}")
+                logger.info(f"포함된 컬럼: {merged_df.columns.tolist()}")
             else:
                 logger.info("⚠️ CSV에 인구수 컬럼이 없습니다. pop_df에서 인구수 로드")
                 # pop_df에서 인구수 로드
@@ -851,26 +856,26 @@ class SeoulService:
             logger.info("범죄율 계산 시작...")
             crime_types = ['살인 발생', '강도 발생', '강간 발생', '절도 발생', '폭력 발생']
             
-            # 범죄 발생 건수를 숫자로 변환
-            def str_to_int(val):
+            # 히트맵과 동일하게 모든 숫자 컬럼을 float로 변환
+            def str_to_float(val):
                 if pd.isna(val):
-                    return 0
+                    return 0.0
                 str_val = str(val).replace(',', '').strip()
                 try:
-                    return int(str_val)
+                    return float(str_val)
                 except (ValueError, TypeError):
-                    return 0
+                    return 0.0
             
-            # 범죄 발생 및 검거 건수를 숫자로 변환
+            # 범죄 발생 및 검거 건수를 숫자로 변환 (히트맵과 동일하게 float 사용)
             for crime_type in crime_types:
                 if crime_type in merged_df.columns:
-                    merged_df[crime_type] = merged_df[crime_type].apply(str_to_int)
+                    merged_df[crime_type] = merged_df[crime_type].apply(str_to_float)
             
-            # 검거 데이터도 숫자로 변환
+            # 검거 데이터도 숫자로 변환 (히트맵과 동일하게 float 사용)
             crime_arrest_types = ['살인 검거', '강도 검거', '강간 검거', '절도 검거', '폭력 검거']
             for arrest_col in crime_arrest_types:
                 if arrest_col in merged_df.columns:
-                    merged_df[arrest_col] = merged_df[arrest_col].apply(str_to_int)
+                    merged_df[arrest_col] = merged_df[arrest_col].apply(str_to_float)
             
             # 범죄율 계산 (10만명당)
             rate_df = merged_df[['자치구', '인구']].copy()
@@ -879,7 +884,12 @@ class SeoulService:
                 if crime_type in merged_df.columns:
                     rate_col = crime_type.replace(' 발생', ' 발생율')
                     # 범죄율 = (범죄 발생 건수 ÷ 인구) × 100,000
-                    rate_df[rate_col] = (merged_df[crime_type] / merged_df['인구'] * 100000).round(2)
+                    # 히트맵과 동일하게 인구가 0이거나 NaN인 경우 처리
+                    mask = (merged_df['인구'] > 0) & (merged_df['인구'].notna())
+                    rate_df[rate_col] = 0.0  # 기본값 0
+                    rate_df.loc[mask, rate_col] = (
+                        merged_df.loc[mask, crime_type] / merged_df.loc[mask, '인구'] * 100000
+                    ).round(1)
                     logger.info(f"{rate_col} 계산 완료")
             
             # 범죄 발생율 정규화 (히트맵과 동일하게)
@@ -985,13 +995,13 @@ class SeoulService:
             m = folium.Map(location=seoul_center, zoom_start=11, tiles='OpenStreetMap')
             
             # 범죄 유형별 Choropleth 레이어 추가
+            # 히트맵과 동일하게 범죄 발생율 5가지만 사용 (총 범죄 발생율 제외)
             crime_rate_mapping = {
                 '살인 발생율': '살인 발생율',
                 '강도 발생율': '강도 발생율',
                 '강간 발생율': '강간 발생율',
                 '절도 발생율': '절도 발생율',
-                '폭력 발생율': '폭력 발생율',
-                '총 범죄 발생율': '총 범죄 발생율'
+                '폭력 발생율': '폭력 발생율'
             }
             
             colors = {
@@ -999,8 +1009,7 @@ class SeoulService:
                 '강도 발생율': 'Oranges',
                 '강간 발생율': 'Purples',
                 '절도 발생율': 'Blues',
-                '폭력 발생율': 'YlOrRd',
-                '총 범죄 발생율': 'YlOrRd'
+                '폭력 발생율': 'YlOrRd'
             }
             
             # 자치구별 데이터를 딕셔너리로 변환 (Popup/Tooltip용)
@@ -1026,13 +1035,11 @@ class SeoulService:
                     logger.info(f"   rate_df 샘플: {row.to_dict()}")
                 
                 district_data[district] = {
-                    '인구': int(district_row['인구'].iloc[0]) if len(district_row) > 0 else 0,
                     '살인 발생율': row.get('살인 발생율', 0),
                     '강도 발생율': row.get('강도 발생율', 0),
                     '강간 발생율': row.get('강간 발생율', 0),
                     '절도 발생율': row.get('절도 발생율', 0),
                     '폭력 발생율': row.get('폭력 발생율', 0),
-                    '총 범죄 발생율': row.get('총 범죄 발생율', 0),
                     '살인 검거율': arrest_rates['살인 검거율'],
                     '강도 검거율': arrest_rates['강도 검거율'],
                     '강간 검거율': arrest_rates['강간 검거율'],
@@ -1045,22 +1052,20 @@ class SeoulService:
                 district_name = feature['id']
                 if district_name in district_data:
                     data = district_data[district_name]
-                    # properties에 데이터 추가
+                    # properties에 데이터 추가 (히트맵과 동일하게 범죄 발생율과 검거율만)
                     if 'properties' not in feature:
                         feature['properties'] = {}
                     feature['properties'].update({
-                        '인구': data['인구'],
                         '살인 발생율': data['살인 발생율'],
                         '강도 발생율': data['강도 발생율'],
                         '강간 발생율': data['강간 발생율'],
                         '절도 발생율': data['절도 발생율'],
                         '폭력 발생율': data['폭력 발생율'],
-                        '총 범죄 발생율': data['총 범죄 발생율'],
                     })
             
             # Popup/Tooltip용 별도 레이어 생성 (모든 범죄 유형에 공통으로 사용)
             # Choropleth는 색상만 표시하고, 별도 GeoJson 레이어로 Popup/Tooltip 추가
-            info_layer = folium.FeatureGroup(name="자치구 정보")
+            # info_layer 제거 - Choropleth에 직접 Popup/Tooltip 추가
             label_layer = folium.FeatureGroup(name="자치구 수치 표시")
             
             # 각 자치구의 중심점 계산 및 수치 표시를 위한 함수
@@ -1082,103 +1087,90 @@ class SeoulService:
                 lons = [coord[0] for coord in coords]
                 return [sum(lats) / len(lats), sum(lons) / len(lons)]
             
-            # 각 feature를 개별적으로 처리하여 Popup/Tooltip 추가
-            for feature in seoul_geo['features']:
-                district_name = feature['id']
-                if district_name in district_data:
-                    data = district_data[district_name]
-                    
-                    # Tooltip: 마우스 호버 시 간단한 정보
-                    tooltip_html = f"""
+            # Popup/Tooltip HTML 생성 함수
+            def create_popup_tooltip(district_name, data):
+                """Popup과 Tooltip HTML 생성"""
+                tooltip_html = f"""
+                <div>
                     <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">
                         {district_name}
                     </div>
                     <div style="font-size: 12px;">
-                        총 범죄 발생율: <b style="color: #e74c3c;">{data['총 범죄 발생율']:.4f}</b> (정규화: 최댓값=1)
+                        살인: {data['살인 발생율']:.4f} | 강도: {data['강도 발생율']:.4f} | 강간: {data['강간 발생율']:.4f} | 절도: {data['절도 발생율']:.4f} | 폭력: {data['폭력 발생율']:.4f}
                     </div>
-                    """
-                    
-                    # Popup: 클릭 시 상세 정보 (범죄 발생율 + 검거율)
-                    popup_html = f"""
-                    <div style="width: 320px; font-family: Arial, sans-serif;">
-                        <h3 style="margin: 0 0 12px 0; color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 8px; font-size: 18px;">
-                            📍 {district_name}
-                        </h3>
-                        <div style="margin-bottom: 12px; padding: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 5px; color: white;">
-                            <strong style="font-size: 14px;">인구수:</strong> 
-                            <span style="font-size: 16px; font-weight: bold;">{data['인구']:,}명</span>
-                        </div>
-                        <div style="margin-top: 15px;">
-                            <h4 style="margin: 0 0 10px 0; color: #34495e; font-size: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px;">
-                                📊 범죄 발생율 (정규화: 최댓값=1)
-                            </h4>
-                            <table style="width: 100%; border-collapse: collapse; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px;">
-                                <tr style="background: linear-gradient(90deg, #fff3cd 0%, #ffeaa7 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔴 살인:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #c0392b;">{data['살인 발생율']:.4f}</td>
-                                </tr>
-                                <tr style="background: linear-gradient(90deg, #ffeaa7 0%, #fdcb6e 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟠 강도:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #d35400;">{data['강도 발생율']:.4f}</td>
-                                </tr>
-                                <tr style="background: linear-gradient(90deg, #e1bee7 0%, #ce93d8 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟣 강간:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #7b1fa2;">{data['강간 발생율']:.4f}</td>
-                                </tr>
-                                <tr style="background: linear-gradient(90deg, #bbdefb 0%, #90caf9 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔵 절도:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #1565c0;">{data['절도 발생율']:.4f}</td>
-                                </tr>
-                                <tr style="background: linear-gradient(90deg, #ffccbc 0%, #ffab91 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟧 폭력:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #d84315;">{data['폭력 발생율']:.4f}</td>
-                                </tr>
-                                <tr style="background: linear-gradient(90deg, #ffab91 0%, #ff8a65 100%); font-weight: bold; border-top: 3px solid #d32f2f;">
-                                    <td style="padding: 8px; border: 2px solid #d32f2f; font-size: 14px;">📈 총계:</td>
-                                    <td style="padding: 8px; border: 2px solid #d32f2f; text-align: right; font-size: 16px; color: #c62828;">{data['총 범죄 발생율']:.4f}</td>
-                                </tr>
-                            </table>
-                            <h4 style="margin: 15px 0 10px 0; color: #34495e; font-size: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px;">
-                                ✅ 범죄 검거율 (%)
-                            </h4>
-                            <table style="width: 100%; border-collapse: collapse; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                <tr style="background: linear-gradient(90deg, #c8e6c9 0%, #a5d6a7 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔴 살인:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('살인 검거율', 0):.1f}%</td>
-                                </tr>
-                                <tr style="background: linear-gradient(90deg, #a5d6a7 0%, #81c784 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟠 강도:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('강도 검거율', 0):.1f}%</td>
-                                </tr>
-                                <tr style="background: linear-gradient(90deg, #81c784 0%, #66bb6a 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟣 강간:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('강간 검거율', 0):.1f}%</td>
-                                </tr>
-                                <tr style="background: linear-gradient(90deg, #66bb6a 0%, #4caf50 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔵 절도:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('절도 검거율', 0):.1f}%</td>
-                                </tr>
-                                <tr style="background: linear-gradient(90deg, #4caf50 0%, #388e3c 100%);">
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟧 폭력:</td>
-                                    <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('폭력 검거율', 0):.1f}%</td>
-                                </tr>
-                            </table>
-                        </div>
+                </div>
+                """
+                
+                popup_html = f"""
+                <div style="width: 320px; font-family: Arial, sans-serif;">
+                    <h3 style="margin: 0 0 12px 0; color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 8px; font-size: 18px;">
+                        📍 {district_name}
+                    </h3>
+                    <div style="margin-top: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #34495e; font-size: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px;">
+                            📊 범죄 발생율 (정규화: 최댓값=1)
+                        </h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px;">
+                            <tr style="background: linear-gradient(90deg, #fff3cd 0%, #ffeaa7 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔴 살인:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #c0392b;">{data['살인 발생율']:.4f}</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #ffeaa7 0%, #fdcb6e 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟠 강도:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #d35400;">{data['강도 발생율']:.4f}</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #e1bee7 0%, #ce93d8 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟣 강간:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #7b1fa2;">{data['강간 발생율']:.4f}</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #bbdefb 0%, #90caf9 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔵 절도:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #1565c0;">{data['절도 발생율']:.4f}</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #ffccbc 0%, #ffab91 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟧 폭력:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #d84315;">{data['폭력 발생율']:.4f}</td>
+                            </tr>
+                        </table>
+                        <h4 style="margin: 15px 0 10px 0; color: #34495e; font-size: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px;">
+                            ✅ 범죄 검거율 (%)
+                        </h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <tr style="background: linear-gradient(90deg, #c8e6c9 0%, #a5d6a7 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔴 살인:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('살인 검거율', 0):.1f}%</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #a5d6a7 0%, #81c784 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟠 강도:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('강도 검거율', 0):.1f}%</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #81c784 0%, #66bb6a 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟣 강간:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('강간 검거율', 0):.1f}%</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #66bb6a 0%, #4caf50 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔵 절도:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('절도 검거율', 0):.1f}%</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #4caf50 0%, #388e3c 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟧 폭력:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('폭력 검거율', 0):.1f}%</td>
+                            </tr>
+                        </table>
                     </div>
-                    """
-                    
-                    # 개별 feature에 대해 GeoJson 생성 및 Popup/Tooltip 추가
-                    folium.GeoJson(
-                        feature,
-                        style_function=lambda x: {
-                            'fillColor': 'transparent',
-                            'color': 'transparent',
-                            'weight': 0,
-                            'fillOpacity': 0
-                        },
-                        tooltip=folium.Tooltip(tooltip_html, sticky=True),
-                        popup=folium.Popup(popup_html, max_width=300)
-                    ).add_to(info_layer)
+                </div>
+                """
+                return popup_html, tooltip_html
+            
+            # onEachFeature 콜백 함수 정의
+            def on_each_feature(feature, layer):
+                """Choropleth의 각 feature에 Popup과 Tooltip 추가"""
+                district_name = feature.get('id')
+                if district_name and district_name in district_data:
+                    data = district_data[district_name]
+                    popup_html, tooltip_html = create_popup_tooltip(district_name, data)
+                    layer.bind_popup(folium.Popup(popup_html, max_width=300))
+                    layer.bind_tooltip(folium.Tooltip(tooltip_html, sticky=True))
             
             # 각 자치구 중심에 수치 표시
             for feature in seoul_geo['features']:
@@ -1199,6 +1191,7 @@ class SeoulService:
                         continue
                     
                     # 수치 레이블 HTML 생성
+                    # 히트맵과 동일하게 각 항목별 검거율 표시
                     label_html = f"""
                     <div style="
                         background: rgba(255, 255, 255, 0.9);
@@ -1206,20 +1199,26 @@ class SeoulService:
                         border-radius: 8px;
                         padding: 8px 12px;
                         font-family: Arial, sans-serif;
-                        font-size: 11px;
+                        font-size: 10px;
                         font-weight: bold;
                         text-align: center;
                         box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                        min-width: 120px;
+                        min-width: 140px;
                     ">
-                        <div style="color: #2c3e50; margin-bottom: 4px; font-size: 12px;">
+                        <div style="color: #2c3e50; margin-bottom: 4px; font-size: 12px; font-weight: bold;">
                             {district_name}
                         </div>
-                        <div style="color: #e74c3c; font-size: 13px; margin-bottom: 3px;">
-                            발생율: {data['총 범죄 발생율']:.4f}
+                        <div style="color: #e74c3c; font-size: 10px; margin-bottom: 2px;">
+                            살인: {data['살인 발생율']:.4f} | 강도: {data['강도 발생율']:.4f}
                         </div>
-                        <div style="color: #27ae60; font-size: 13px;">
-                            검거율: {(data.get('살인 검거율', 0) + data.get('강도 검거율', 0) + data.get('강간 검거율', 0) + data.get('절도 검거율', 0) + data.get('폭력 검거율', 0)) / 5:.1f}%
+                        <div style="color: #e74c3c; font-size: 10px; margin-bottom: 2px;">
+                            강간: {data['강간 발생율']:.4f} | 절도: {data['절도 발생율']:.4f} | 폭력: {data['폭력 발생율']:.4f}
+                        </div>
+                        <div style="color: #27ae60; font-size: 10px; margin-bottom: 2px;">
+                            살인: {data.get('살인 검거율', 0):.1f}% | 강도: {data.get('강도 검거율', 0):.1f}%
+                        </div>
+                        <div style="color: #27ae60; font-size: 10px;">
+                            강간: {data.get('강간 검거율', 0):.1f}% | 절도: {data.get('절도 검거율', 0):.1f}% | 폭력: {data.get('폭력 검거율', 0):.1f}%
                         </div>
                     </div>
                     """
@@ -1237,15 +1236,88 @@ class SeoulService:
                         tooltip=f"{district_name} 클릭하여 상세 정보 보기"
                     ).add_to(label_layer)
             
-            info_layer.add_to(m)
             label_layer.add_to(m)
-            logger.info("자치구 정보 레이어 추가 완료 (Popup/Tooltip 포함)")
             logger.info("자치구 수치 표시 레이어 추가 완료")
+            
+            # Popup/Tooltip HTML 생성 함수
+            def create_popup_tooltip(district_name, data):
+                """Popup과 Tooltip HTML 생성"""
+                tooltip_html = f"""
+                <div>
+                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">
+                        {district_name}
+                    </div>
+                    <div style="font-size: 12px;">
+                        살인: {data['살인 발생율']:.4f} | 강도: {data['강도 발생율']:.4f} | 강간: {data['강간 발생율']:.4f} | 절도: {data['절도 발생율']:.4f} | 폭력: {data['폭력 발생율']:.4f}
+                    </div>
+                </div>
+                """
+                
+                popup_html = f"""
+                <div style="width: 320px; font-family: Arial, sans-serif;">
+                    <h3 style="margin: 0 0 12px 0; color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 8px; font-size: 18px;">
+                        📍 {district_name}
+                    </h3>
+                    <div style="margin-top: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #34495e; font-size: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px;">
+                            📊 범죄 발생율 (정규화: 최댓값=1)
+                        </h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px;">
+                            <tr style="background: linear-gradient(90deg, #fff3cd 0%, #ffeaa7 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔴 살인:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #c0392b;">{data['살인 발생율']:.4f}</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #ffeaa7 0%, #fdcb6e 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟠 강도:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #d35400;">{data['강도 발생율']:.4f}</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #e1bee7 0%, #ce93d8 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟣 강간:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #7b1fa2;">{data['강간 발생율']:.4f}</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #bbdefb 0%, #90caf9 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔵 절도:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #1565c0;">{data['절도 발생율']:.4f}</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #ffccbc 0%, #ffab91 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟧 폭력:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #d84315;">{data['폭력 발생율']:.4f}</td>
+                            </tr>
+                        </table>
+                        <h4 style="margin: 15px 0 10px 0; color: #34495e; font-size: 15px; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px;">
+                            ✅ 범죄 검거율 (%)
+                        </h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <tr style="background: linear-gradient(90deg, #c8e6c9 0%, #a5d6a7 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔴 살인:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('살인 검거율', 0):.1f}%</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #a5d6a7 0%, #81c784 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟠 강도:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('강도 검거율', 0):.1f}%</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #81c784 0%, #66bb6a 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟣 강간:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('강간 검거율', 0):.1f}%</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #66bb6a 0%, #4caf50 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🔵 절도:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('절도 검거율', 0):.1f}%</td>
+                            </tr>
+                            <tr style="background: linear-gradient(90deg, #4caf50 0%, #388e3c 100%);">
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; font-weight: bold;">🟧 폭력:</td>
+                                <td style="padding: 6px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #2e7d32;">{data.get('폭력 검거율', 0):.1f}%</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                """
+                return popup_html, tooltip_html
             
             for rate_col, display_name in crime_rate_mapping.items():
                 if rate_col in rate_df.columns:
-                    # Choropleth 레이어 생성 (색상만 표시)
-                    folium.Choropleth(
+                    # Choropleth 레이어 생성
+                    choropleth = folium.Choropleth(
                         geo_data=seoul_geo,
                         name=display_name,
                         data=rate_df,
@@ -1255,8 +1327,26 @@ class SeoulService:
                         fill_opacity=0.7,
                         line_opacity=0.2,
                         legend_name=f'{display_name} (10만명당)',
-                    ).add_to(m)
-                    logger.info(f"{display_name} 레이어 추가 완료")
+                    )
+                    choropleth.add_to(m)
+                    
+                    # Choropleth의 내부 GeoJson 레이어에 Popup/Tooltip 추가
+                    # geojson 속성은 FeatureGroup이므로 각 레이어에 접근
+                    for feature in seoul_geo['features']:
+                        district_name = feature.get('id')
+                        if district_name and district_name in district_data:
+                            data = district_data[district_name]
+                            popup_html, tooltip_html = create_popup_tooltip(district_name, data)
+                            
+                            # Choropleth의 geojson FeatureGroup에서 해당 feature 찾기
+                            # 각 레이어를 순회하며 feature id로 매칭
+                            for layer in choropleth.geojson._children.values():
+                                if hasattr(layer, 'feature') and layer.feature.get('id') == district_name:
+                                    layer.bind_popup(folium.Popup(popup_html, max_width=300))
+                                    layer.bind_tooltip(folium.Tooltip(tooltip_html, sticky=True))
+                                    break
+                    
+                    logger.info(f"{display_name} 레이어 추가 완료 (Popup/Tooltip 포함)")
             
             # 레이어 컨트롤 추가
             folium.LayerControl().add_to(m)

@@ -132,17 +132,17 @@ async def get_crime_rate_map():
         # 데이터 전처리
         seoul_service.preprocess()
         
-        # 데이터셋에서 데이터 가져오기
-        crime_df = seoul_service.method.dataset.crime
-        pop_df = seoul_service.method.dataset.pop
+        # 히트맵과 동일한 데이터 사용 (preprocess()에서 생성된 crime_df_with_pop)
+        # 인구수가 이미 포함된 데이터프레임 사용
+        crime_df_with_pop = seoul_service.crime_df_with_pop
         
         # save 폴더 경로 설정
         from pathlib import Path
         save_path = Path(__file__).parent.parent / "seoul_crime" / "save"
         save_path.mkdir(parents=True, exist_ok=True)
         
-        # 지도 HTML 생성 (save_path 전달하여 파일 저장)
-        html_str = seoul_service.generate_crime_rate_map(crime_df, pop_df, save_path)
+        # 지도 HTML 생성 (인구수가 이미 포함된 데이터프레임 전달, pop_df는 None)
+        html_str = seoul_service.generate_crime_rate_map(crime_df_with_pop, pop_df=None, save_path=save_path)
         
         return HTMLResponse(content=html_str)
     except Exception as e:

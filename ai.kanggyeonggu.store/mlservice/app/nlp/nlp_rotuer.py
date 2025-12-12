@@ -11,6 +11,7 @@ import io
 import logging
 from datetime import datetime
 from app.nlp.emma.emma_wordcloud import NLPService
+from app.nlp.samsung.samsung_wordcloud import SamusungWordcloud
 from nltk import FreqDist
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,18 @@ router = APIRouter(
 
 # 서비스 인스턴스 생성
 nlp_service = NLPService()
+
+# 삼성 워드클라우드 서비스는 지연 초기화 (Java JVM 필요)
+_samsung_wordcloud_service = None
+
+def get_samsung_wordcloud_service():
+    """삼성 워드클라우드 서비스 지연 초기화"""
+    global _samsung_wordcloud_service
+    if _samsung_wordcloud_service is None:
+        logger.info("삼성 워드클라우드 서비스 초기화 중... (Java JVM 시작)")
+        _samsung_wordcloud_service = SamusungWordcloud()
+        logger.info("삼성 워드클라우드 서비스 초기화 완료")
+    return _samsung_wordcloud_service
 
 
 @router.get(
@@ -160,6 +173,83 @@ async def create_emma_wordcloud(
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"워드클라우드 생성 중 오류 발생: {str(e)}"
+        )
+
+
+@router.get(
+    "/samsung",
+    summary="삼성 워드클라우드 생성",
+    description="삼성전자 지속가능경영보고서 2018을 사용하여 워드클라우드를 생성하고 저장합니다."
+)
+async def create_samsung_wordcloud() -> Dict[str, Any]:
+    """
+    삼성 워드클라우드 생성 및 저장
+    
+    Returns:
+        워드클라우드 생성 결과 및 파일 경로
+    """
+    try:
+        logger.info("삼성 워드클라우드 생성 시작...")
+        
+        # 서비스 지연 초기화 (첫 호출 시에만 Java JVM 시작)
+        service = get_samsung_wordcloud_service()
+        
+        # 1. 워드클라우드 생성 및 저장
+        file_path = service.draw_wordcloud()
+        logger.info(f"워드클라우드 저장 완료: {file_path}")
+        
+        # 2. 빈도 분석
+        freq_txt = service.find_freq()
+        
+        # 3. 상위 30개 단어 추출
+        top_words = []
+        if len(freq_txt) > 0:
+            top_30 = freq_txt.head(30)
+            top_words = [
+                {"word": word, "count": int(count)}
+                for word, count in top_30.items()
+            ]
+        
+        # 4. 이미지를 Base64로 인코딩 (선택사항)
+        try:
+            from wordcloud import WordCloud
+            import matplotlib.pyplot as plt
+            import numpy as np
+            from PIL import Image
+            
+            # 저장된 이미지 읽기
+            img_path = Path(file_path)
+            if img_path.exists():
+                with open(img_path, 'rb') as f:
+                    img_data = f.read()
+                img_base64 = base64.b64encode(img_data).decode('utf-8')
+            else:
+                img_base64 = None
+        except Exception as e:
+            logger.warning(f"이미지 Base64 인코딩 실패: {e}")
+            img_base64 = None
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "삼성 워드클라우드 생성 및 저장 완료",
+            "file_path": file_path,
+            "file_name": "samsung_wordcloud.png",
+            "statistics": {
+                "total_words": len(freq_txt) if len(freq_txt) > 0 else 0,
+                "top_30_words": top_words
+            },
+            "image": f"data:image/png;base64,{img_base64}" if img_base64 else None
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"삼성 워드클라우드 생성 중 오류 발생: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail=f"워드클라우드 생성 중 오류 발생: {str(e)}"
