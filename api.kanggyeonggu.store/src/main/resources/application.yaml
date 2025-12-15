@@ -73,7 +73,47 @@ spring:
           predicates:
             - Path=/api/ml/**
           filters:
-            - RewritePath=/api/ml/(?<segment>.*), /${segment}            
+            - RewritePath=/api/ml/(?<segment>.*), /${segment}
+        
+        # Review Service 라우팅 (KoELECTRA 감성분석)
+        - id: review-service
+          uri: http://reviewservice:9004
+          predicates:
+            - Path=/api/review/**
+          filters:
+            - RewritePath=/api/review/(?<segment>.*), /${segment}
+        
+        # ML Service Swagger UI 접근
+        - id: ml-service-docs
+          uri: http://mlservice:9002
+          predicates:
+            - Path=/ml/docs/**
+          filters:
+            - RewritePath=/ml/docs/(?<segment>.*), /docs/${segment}
+        
+        # ML Service OpenAPI JSON
+        - id: ml-service-openapi
+          uri: http://mlservice:9002
+          predicates:
+            - Path=/ml/openapi.json
+          filters:
+            - RewritePath=/ml/openapi.json, /openapi.json
+        
+        # Review Service Swagger UI 접근
+        - id: review-service-docs
+          uri: http://reviewservice:9004
+          predicates:
+            - Path=/review/docs/**
+          filters:
+            - RewritePath=/review/docs/(?<segment>.*), /docs/${segment}
+        
+        # Review Service OpenAPI JSON
+        - id: review-service-openapi
+          uri: http://reviewservice:9004
+          predicates:
+            - Path=/review/openapi.json
+          filters:
+            - RewritePath=/review/openapi.json, /openapi.json
       
       # CORS 설정
       globalcors:
@@ -103,6 +143,8 @@ jwt:
 springdoc:
   api-docs:
     path: /docs/api-docs
+    groups:
+      enabled: true
   swagger-ui:
     path: /docs
     enabled: true
@@ -113,6 +155,16 @@ springdoc:
     show-actuator: false
     default-flat-param-object: true
     writer-with-order-by-keys: true
+    # 기본 그룹을 "all"로 설정하여 모든 API 표시
+    default-group: all
+    # 외부 서비스(OpenAPI JSON)를 스웨거 UI에서 직접 선택 가능하도록 등록
+    urls:
+      - name: Review Service
+        url: /review/openapi.json
+      # - name: ML Service
+      #   url: /ml/openapi.json
+      - name: Gateway
+        url: /docs/api-docs
 
 management:
   endpoints:
