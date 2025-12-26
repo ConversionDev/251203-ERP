@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import FileUpload from './components/FileUpload';
 
 export default function Home() {
   const router = useRouter();
@@ -51,12 +52,22 @@ export default function Home() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">Enterprise Platform</p>
                 </div>
               </div>
-              <Link
-                href="/login"
-                className="px-4 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg font-medium hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors"
-              >
-                로그인
-              </Link>
+              <div className="flex items-center gap-3">
+                <FileUpload
+                  onUploadComplete={(file) => {
+                    console.log('파일 업로드 완료:', file.name);
+                  }}
+                  onUploadError={(error) => {
+                    console.error('파일 업로드 오류:', error);
+                  }}
+                />
+                <Link
+                  href="/login"
+                  className="px-4 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg font-medium hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors"
+                >
+                  로그인
+                </Link>
+              </div>
             </div>
           </div>
         </header>
