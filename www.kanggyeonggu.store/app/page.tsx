@@ -53,6 +53,12 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <Link
+                  href="/diffusion"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                >
+                  AI 이미지 생성
+                </Link>
                 <FileUpload
                   onUploadComplete={(file) => {
                     console.log('파일 업로드 완료:', file.name);

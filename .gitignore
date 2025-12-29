@@ -70,3 +70,11 @@ pnpm-debug.log*
 ### Docker ###
 *.log
 
+### Hugging Face Cache ###
+.hf_cache/
+**/.hf_cache/
+
+### Diffusion Model Outputs ###
+cv.kanggyeonggu.store/app/diffusers/outputs/
+cv.kanggyeonggu.store/app/diffusers/.hf_cache/
+
