@@ -13,30 +13,84 @@ java {
 	}
 }
 
-repositories {
-	mavenCentral()
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
 }
 
-dependencyManagement {
-	imports {
-		mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
-	}
+repositories {
+	mavenCentral()
 }
 
 bootJar.enabled = true
 jar.enabled = false
 
+// 메인 클래스 명시적 지정
+bootJar {
+	mainClass = 'store.kanggyeonggu.gateway.GatewayApplication'
+}
+
 dependencies {
-	implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
-	implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
-	// Eureka 클라이언트 제거 - Simple Discovery Client 사용
-	// implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
-	implementation 'org.springframework.cloud:spring-cloud-starter-config'
-	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.6.0'
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	// ============================================================================
+	// Spring MVC (메인 웹 프레임워크)
+	// ============================================================================
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	
+	// ============================================================================
+	// Actuator (헬스체크, 메트릭)
+	// ============================================================================
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	
+	// ============================================================================
+	// SpringDoc OpenAPI (Swagger UI) - MVC 버전
+	// ============================================================================
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+	
+	// ============================================================================
+	// WebClient (OAuth HTTP 클라이언트로만 사용)
+	// ============================================================================
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	
+	// ============================================================================
+	// Security
+	// ============================================================================
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	
+	// ============================================================================
+	// Database (PostgreSQL - Neon DB)
+	// ============================================================================
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	runtimeOnly 'org.postgresql:postgresql'
+	
+	// ============================================================================
+	// Redis (Upstash)
+	// ============================================================================
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	
+	// ============================================================================
+	// JWT
+	// ============================================================================
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+	implementation 'io.jsonwebtoken:jjwt-impl:0.12.3'
+	implementation 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+	
+	// ============================================================================
+	// Lombok
+	// ============================================================================
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
+	
+	// ============================================================================
+	// DevTools
+	// ============================================================================
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	
+	// ============================================================================
+	// Test
+	// ============================================================================
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

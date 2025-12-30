@@ -12,6 +12,21 @@
 *.yml text eol=lf
 *.md text eol=lf
 
+# Java/Gradle 파일은 LF로 통일
+*.java text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+
+# Docker 파일은 LF로 통일
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
+docker-compose*.yaml text eol=lf
+docker-compose*.yml text eol=lf
+
+# Git 설정 파일은 LF로 통일
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
 # 바이너리 파일은 변환하지 않음
 *.png binary
 *.jpg binary
@@ -28,4 +43,5 @@
 *.bin binary
 *.pt binary
 *.pth binary
+
 

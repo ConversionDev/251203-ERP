@@ -1,145 +1,93 @@
 spring:
   application:
-    name: gateway
-  cloud:
-    config:
-      enabled: false
-      import-check:
-        enabled: false
-    
-    gateway:
-      routes:
-        # OAuth Service 라우팅
-        - id: oauth-service
-          uri: http://oauthservice:8081
-          predicates:
-            - Path=/auth/**
-        
-        # OAuth2 Google 콜백 라우팅
-        - id: oauth2-google
-          uri: http://oauthservice:8081
-          predicates:
-            - Path=/oauth2/google/**
-          filters:
-            - RewritePath=/oauth2/google/(?<segment>.*), /auth/google/$\{segment}
-        
-        # OAuth2 Naver 콜백 라우팅
-        - id: oauth2-naver
-          uri: http://oauthservice:8081
-          predicates:
-            - Path=/oauth2/naver/**
-          filters:
-            - RewritePath=/oauth2/naver/(?<segment>.*), /auth/naver/$\{segment}
-        
-        # OAuth2 Kakao 콜백 라우팅
-        - id: oauth2-kakao
-          uri: http://oauthservice:8081
-          predicates:
-            - Path=/oauth2/kakao/**
-          filters:
-            - RewritePath=/oauth2/kakao/(?<segment>.*), /auth/kakao/$\{segment}
-        
-        # User API 라우팅
-        - id: user-api
-          uri: http://user-service:8082
-          predicates:
-            - Path=/api/users/**
-        
-        # User Service Health Check
-        - id: user-service-health
-          uri: http://user-service:8082
-          predicates:
-            - Path=/user/**
-        
-        # AI Crawler Service 라우팅
-        - id: ai-crawler
-          uri: http://crawler-service:9001
-          predicates:
-            - Path=/ai/crawler/**
-          filters:
-            - StripPrefix=1
-        
-        # AI Chatbot Service 라우팅
-        - id: ai-chatbot
-          uri: http://chatbot-service:9002
-          predicates:
-            - Path=/ai/chatbot/**
-          filters:
-            - StripPrefix=1
-        
-        # ML Service 라우팅 (Titanic, Customer, Seoul 포함)
-        - id: ml-service
-          uri: http://mlservice:9002
-          predicates:
-            - Path=/api/ml/**
-          filters:
-            - RewritePath=/api/ml/(?<segment>.*), /${segment}
-        
-        # Review Service 라우팅 (KoELECTRA 감성분석)
-        - id: review-service
-          uri: http://reviewservice:9004
-          predicates:
-            - Path=/api/review/**
-          filters:
-            - RewritePath=/api/review/(?<segment>.*), /${segment}
-        
-        # ML Service Swagger UI 접근
-        - id: ml-service-docs
-          uri: http://mlservice:9002
-          predicates:
-            - Path=/ml/docs/**
-          filters:
-            - RewritePath=/ml/docs/(?<segment>.*), /docs/${segment}
-        
-        # ML Service OpenAPI JSON
-        - id: ml-service-openapi
-          uri: http://mlservice:9002
-          predicates:
-            - Path=/ml/openapi.json
-          filters:
-            - RewritePath=/ml/openapi.json, /openapi.json
-        
-        # Review Service Swagger UI 접근
-        - id: review-service-docs
-          uri: http://reviewservice:9004
-          predicates:
-            - Path=/review/docs/**
-          filters:
-            - RewritePath=/review/docs/(?<segment>.*), /docs/${segment}
-        
-        # Review Service OpenAPI JSON
-        - id: review-service-openapi
-          uri: http://reviewservice:9004
-          predicates:
-            - Path=/review/openapi.json
-          filters:
-            - RewritePath=/review/openapi.json, /openapi.json
-      
-      # CORS 설정
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOrigins:
-              - "http://localhost:3000"
-              - "http://localhost:4000"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - OPTIONS
-            allowedHeaders:
-              - "*"
-            allowCredentials: true
-            maxAge: 3600
+    name: api-gateway
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # Database 설정 (PostgreSQL - Neon DB)
+  datasource:
+    url: jdbc:postgresql://${NEON_DEV_HOST}:${NEON_DEV_PORT:5432}/${NEON_DEV_DATABASE}?sslmode=${NEON_DEV_SSL_MODE:require}
+    username: ${NEON_DEV_USER}
+    password: ${NEON_DEV_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+
+  # Redis 설정 (Upstash)
+  data:
+    redis:
+      host: ${REDIS_HOST:emerging-whippet-43982.upstash.io}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:AavOAAIncDJhNGE4NDc3YzU4YmU0ODFlYTQ1ZmQ3Nzk0MjE4YWUxMnAyNDM5ODI}
+      ssl:
+        enabled: ${REDIS_SSL:true}
 
 server:
   port: 8080
 
+# ============================================================================
 # JWT 설정
+# ============================================================================
 jwt:
   secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
 
+# ============================================================================
+# OAuth2 소셜 로그인 설정
+# ============================================================================
+
+# Kakao OAuth2
+kakao:
+  rest-api-key: ${KAKAO_REST_API_KEY}
+  client-secret: ${KAKAO_CLIENT_SECRET:}
+  redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/auth/kakao/callback}
+  authorization-uri: https://kauth.kakao.com/oauth/authorize
+  token-uri: https://kauth.kakao.com/oauth/token
+  user-info-uri: https://kapi.kakao.com/v2/user/me
+
+# Naver OAuth2
+naver:
+  client-id: ${NAVER_CLIENT_ID}
+  client-secret: ${NAVER_CLIENT_SECRET}
+  redirect-uri: ${NAVER_REDIRECT_URI:http://localhost:8080/auth/naver/callback}
+  authorization-uri: https://nid.naver.com/oauth2.0/authorize
+  token-uri: https://nid.naver.com/oauth2.0/token
+  user-info-uri: https://openapi.naver.com/v1/nid/me
+
+# Google OAuth2
+google:
+  client-id: ${GOOGLE_CLIENT_ID}
+  client-secret: ${GOOGLE_CLIENT_SECRET}
+  redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/auth/google/callback}
+  authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+  token-uri: https://oauth2.googleapis.com/token
+  user-info-uri: https://www.googleapis.com/oauth2/v2/userinfo
+
+# ============================================================================
+# Frontend 설정
+# ============================================================================
+frontend:
+  callback-url: ${FRONTEND_CALLBACK_URL:http://localhost:4000/dashboard}
+
+# ============================================================================
+# SpringDoc OpenAPI 설정
+# ============================================================================
 springdoc:
   api-docs:
     path: /docs/api-docs
@@ -155,34 +103,28 @@ springdoc:
     show-actuator: false
     default-flat-param-object: true
     writer-with-order-by-keys: true
-    # 기본 그룹을 "all"로 설정하여 모든 API 표시
     default-group: all
-    # 외부 서비스(OpenAPI JSON)를 스웨거 UI에서 직접 선택 가능하도록 등록
-    urls:
-      - name: Review Service
-        url: /review/openapi.json
-      # - name: ML Service
-      #   url: /ml/openapi.json
-      - name: Gateway
-        url: /docs/api-docs
 
+# ============================================================================
+# Actuator 설정
+# ============================================================================
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway,metrics
+        include: health,info,metrics
   endpoint:
     health:
       show-details: always
-    gateway:
-      enabled: true
 
+# ============================================================================
 # 로깅 설정
+# ============================================================================
 logging:
   level:
     root: INFO
-    store.kanggyeonggu: DEBUG
-    org.springframework.cloud.gateway: INFO
-    org.springframework.cloud.loadbalancer: INFO
+    kanggyeonggu.store: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     io.micrometer: WARN
     io.micrometer.core.instrument: WARN

@@ -1,21 +1,19 @@
 # ============================================================================
 # Gateway Service Docker Compose 설정
 # ============================================================================
-# API Gateway + ML Service 통합 실행용
+# API Gateway + OAuth Service + User Service 통합 실행용
 #
 # 사용 예시:
 #   cd api.kanggyeonggu.store
 #   docker compose up -d
 #
 # 포함 서비스:
-#   - Gateway (8080)
-#   - ML Service (9002)
-#   - Review Service (9004)
+#   - Gateway (8080) - OAuth Service와 User Service 포함
 # ============================================================================
 
 services:
   # ===================
-  # API Gateway
+  # API Gateway (OAuth Service + User Service 통합)
   # ===================
   gateway:
     build:
@@ -30,9 +28,6 @@ services:
       - JWT_SECRET=${JWT_SECRET:-default-secret-key}
     networks:
       - gateway-network
-    depends_on:
-      # - mlservice
-      - reviewservice
     restart: on-failure
     healthcheck:
       test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1" ]
@@ -40,58 +35,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
-
-  # ===================
-  # ML Service
-  # ===================
-  # mlservice:
-  #   build:
-  #     context: ../ai.kanggyeonggu.store
-  #     dockerfile: mlservice/Dockerfile
-  #   container_name: mlservice
-  #   ports:
-  #     - "9002:9002"
-  #   env_file:
-  #     - ../.env # 프로젝트 루트의 .env 파일 사용 (카카오 API 키 등)
-  #   networks:
-  #     - gateway-network
-  #   volumes:
-  #     - ../ai.kanggyeonggu.store/mlservice/app:/app/app
-  #     - ../ai.kanggyeonggu.store/common:/app/common
-  #   restart: on-failure
-  #   healthcheck:
-  #     test: [ "CMD", "curl", "-f", "http://localhost:9002/health" ]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 40s
-
-  # ===================
-  # Review Service
-  # ===================
-  reviewservice:
-    build:
-      context: ../ai.kanggyeonggu.store
-      dockerfile: reviewservice/Dockerfile
-    container_name: reviewservice
-    ports:
-      - "9004:9004"
-    env_file:
-      - ../.env # 프로젝트 루트의 .env 파일 사용
-    networks:
-      - gateway-network
-    volumes:
-      # 모델 파일을 볼륨으로 마운트 (모델 파일이 크므로 영구 저장)
-      - ../ai.kanggyeonggu.store/reviewservice/app/koelectra/model:/app/app/koelectra/model
-      - ../ai.kanggyeonggu.store/reviewservice/app:/app/app
-      - ../ai.kanggyeonggu.store/common:/app/common
-    restart: on-failure
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9004/koelectra/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s # 모델 로딩 시간 고려하여 시작 시간 증가
 
 networks:
   gateway-network:
