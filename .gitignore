@@ -78,3 +78,37 @@ pnpm-debug.log*
 cv.kanggyeonggu.store/app/diffusers/outputs/
 cv.kanggyeonggu.store/app/diffusers/.hf_cache/
 
+### Large Model Files ###
+# PyTorch models
+*.pt
+*.pth
+*.ckpt
+
+# Hugging Face models
+*.safetensors
+*.bin
+
+# TensorFlow models
+*.pb
+*.h5
+*.hdf5
+
+# ONNX models
+*.onnx
+
+# Large data files
+*.pkl
+*.pickle
+*.parquet
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Large archives
+*.zip
+*.tar.gz
+*.rar
+

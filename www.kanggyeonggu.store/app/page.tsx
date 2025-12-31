@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import FileUpload from './components/FileUpload';
 
 export default function Home() {
   const router = useRouter();
@@ -53,20 +52,6 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Link
-                  href="/diffusion"
-                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
-                >
-                  AI 이미지 생성
-                </Link>
-                <FileUpload
-                  onUploadComplete={(file) => {
-                    console.log('파일 업로드 완료:', file.name);
-                  }}
-                  onUploadError={(error) => {
-                    console.error('파일 업로드 오류:', error);
-                  }}
-                />
                 <Link
                   href="/login"
                   className="px-4 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg font-medium hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors"
