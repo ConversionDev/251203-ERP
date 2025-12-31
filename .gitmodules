@@ -3,4 +3,4 @@
 	url = https://github.com/ConversionDev/251231-vision.git
 [submodule "chat.kanggyeonggu.store"]
 	path = chat.kanggyeonggu.store
-	url = git@github.com:ConversionDev/251231-chat.git
+	url = https://github.com/ConversionDev/251231-chat.git
