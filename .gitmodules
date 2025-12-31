@@ -1,3 +1,3 @@
-[submodule "251231-vision"]
-	path = 251231-vision
+[submodule "vision.kanggyeonggu.store"]
+	path = vision.kanggyeonggu.store
 	url = https://github.com/ConversionDev/251231-vision.git
