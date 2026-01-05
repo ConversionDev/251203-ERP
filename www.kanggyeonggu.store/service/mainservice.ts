@@ -14,8 +14,13 @@ export const createSocialLoginHandlers = (() => {
             setIsLoading(true);
             setError('');
 
+            // 디버깅: API URL 확인
+            const apiUrl = `${gatewayUrl}/auth/${provider}/login`;
+            console.log(`🔍 [${provider}] 로그인 요청 URL:`, apiUrl);
+            console.log(`🔍 Gateway URL 환경 변수:`, process.env.NEXT_PUBLIC_GATEWAY_URL || '설정되지 않음 (기본값: http://localhost:8080)');
+
             // Gateway의 /auth/{provider}/login 엔드포인트 호출하여 로그인 URL 받기
-            const response = await fetch(`${gatewayUrl}/auth/${provider}/login`, {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -42,8 +47,20 @@ export const createSocialLoginHandlers = (() => {
                 setIsLoading(false);
             }
         } catch (err) {
-            console.error(`${provider} 로그인 오류:`, err);
-            setError('서버 연결에 실패했습니다.');
+            console.error(`❌ ${provider} 로그인 오류:`, err);
+            console.error(`❌ 오류 상세:`, {
+                message: err instanceof Error ? err.message : String(err),
+                gatewayUrl: gatewayUrl,
+                apiUrl: `${gatewayUrl}/auth/${provider}/login`,
+                envVar: process.env.NEXT_PUBLIC_GATEWAY_URL || '설정되지 않음'
+            });
+            
+            // 더 구체적인 에러 메시지
+            if (err instanceof TypeError && err.message === 'Failed to fetch') {
+                setError(`서버에 연결할 수 없습니다. API URL을 확인해주세요: ${gatewayUrl}`);
+            } else {
+                setError('서버 연결에 실패했습니다.');
+            }
             setIsLoading(false);
         }
     }
