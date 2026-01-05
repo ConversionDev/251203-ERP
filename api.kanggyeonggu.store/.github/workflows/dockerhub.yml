@@ -1,0 +1,97 @@
+# ============================================================================
+# GitHub Actions: Docker 이미지 빌드 및 EC2 자동 배포
+# ============================================================================
+# main 브랜치에 push 시 자동으로 실행
+# 1. 소스 코드 체크아웃
+# 2. Docker 이미지 빌드
+# 3. DockerHub에 v1 태그로 푸시
+# 4. EC2 서버에 SSH로 접속하여 자동 배포
+# ============================================================================
+#GitHub Actions 화면에 표시될 워크플로우 이름
+name: Build & Push API Image to DockerHub
+
+on:
+    push:
+        branches:
+            - main
+    workflow_dispatch: #GitHub UI에서 수동 실행 버튼 활성화
+# 모든 job에서 공통으로 사용되는 전역 변수
+env:
+    IMAGE_NAME: rkdrudrn1031/api.kanggyeonggu.store
+
+jobs:
+    build-and-push:
+        runs-on: ubuntu-latest #GitHub가 미리 설치해 둔 최신 Ubuntu LTS 환경(VM)을 가져다 쓰는 것
+
+        steps:
+            #git clone https://github.com/ConversionDev/251231-api.git
+            #cd 251231-api
+            #git checkout
+            - name: Checkout source
+              uses: actions/checkout@v4
+
+            #멀티 플랫폼 빌드는 서로 다른 아키텍처를 가진 여러 환경에서 동일하게 작동하는 **'범용 이미지'**를 만드는 과정입니다.
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Login to DockerHub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: Build and push Docker image
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  file: ./Dockerfile
+                  push: true
+                  tags: ${{ env.IMAGE_NAME }}:v1
+
+    deploy-to-ec2:
+        needs: build-and-push
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Deploy to EC2 via SSH
+              uses: appleboy/ssh-action@v1.0.3
+              with:
+                  host: ${{ secrets.EC2_HOST }}
+                  username: ${{ secrets.EC2_USER }}
+                  key: ${{ secrets.EC2_SSH_KEY }}
+                  script: |
+                      set -e
+
+                      IMAGE="rkdrudrn1031/api.kanggyeonggu.store:v1"
+                      CONTAINER="kanggyeonggu-api"
+
+                      # .env 파일 경로 찾기 (/home/ubuntu/api/.env)
+                      if [ -f "$HOME/api/.env" ]; then
+                          ENV_FILE="$HOME/api/.env"
+                      elif [ -f "$HOME/.env" ]; then
+                          ENV_FILE="$HOME/.env"
+                      else
+                          echo "Warning: .env file not found, trying without it"
+                          ENV_FILE=""
+                      fi
+
+                      docker pull $IMAGE
+
+                      docker stop $CONTAINER || true
+                      docker rm $CONTAINER || true
+
+                      # .env 파일이 있으면 사용, 없으면 환경 변수 없이 실행
+                      if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
+                          docker run -d --name $CONTAINER \
+                            --restart unless-stopped \
+                            -p 8080:8080 \
+                            --env-file "$ENV_FILE" \
+                            $IMAGE
+                      else
+                          docker run -d --name $CONTAINER \
+                            --restart unless-stopped \
+                            -p 8080:8080 \
+                            $IMAGE
+                      fi
+
+                      docker image prune -f
