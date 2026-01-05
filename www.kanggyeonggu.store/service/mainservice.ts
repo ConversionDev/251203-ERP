@@ -54,7 +54,7 @@ export const createSocialLoginHandlers = (() => {
                 apiUrl: `${gatewayUrl}/auth/${provider}/login`,
                 envVar: process.env.NEXT_PUBLIC_GATEWAY_URL || '설정되지 않음'
             });
-            
+
             // 더 구체적인 에러 메시지
             if (err instanceof TypeError && err.message === 'Failed to fetch') {
                 setError(`서버에 연결할 수 없습니다. API URL을 확인해주세요: ${gatewayUrl}`);
