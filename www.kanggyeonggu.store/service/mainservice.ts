@@ -1,5 +1,7 @@
 // 소셜 로그인 핸들러 함수들 (IIFE 패턴)
 
+import { getAccessToken, clearAccessToken } from '@/store/authStore';
+
 export const createSocialLoginHandlers = (() => {
     // IIFE 내부: 공통 설정 및 변수 (private 스코프)
     const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:8080';
@@ -100,60 +102,47 @@ export const createSocialLoginHandlers = (() => {
     }
 
     // 로그아웃 처리 로직 (private 헬퍼 함수)
+    // 통합 로그아웃 API 사용 (/api/auth/logout)
+    // - Refresh Token 쿠키 삭제 (백엔드에서 처리)
+    // - Access Token 삭제 (Zustand에서 처리)
     async function handleLogout(
         token: string,
         onSuccess: () => void,
         onError?: (error: string) => void
     ) {
         try {
-            const providers: ('kakao' | 'naver' | 'google')[] = ['kakao', 'naver', 'google'];
-            let logoutSuccess = false;
+            console.log('🔄 로그아웃 시도...');
 
-            // 각 provider에 대해 로그아웃 시도 (하나 성공하면 종료)
-            for (const provider of providers) {
-                try {
-                    const response = await fetch(`${gatewayUrl}/auth/${provider}/logout`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                        },
-                    });
+            // 통합 로그아웃 API 호출 (Refresh Token 쿠키 삭제)
+            const response = await fetch(`${gatewayUrl}/api/auth/logout`, {
+                method: 'POST',
+                credentials: 'include', // HttpOnly 쿠키 전송
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
 
-                    const data = await response.json();
-
-                    if (response.ok && data.success) {
-                        console.log(`✅ ${provider} 로그아웃 성공`);
-                        logoutSuccess = true;
-                        break; // 성공하면 루프 종료
-                    }
-                } catch (err) {
-                    // 해당 provider 로그아웃 실패 시 다음 provider 시도
-                    console.log(`⚠️ ${provider} 로그아웃 시도 실패, 다음 provider 시도...`);
-                    continue;
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    console.log('✅ 로그아웃 성공');
                 }
+            } else {
+                console.warn('⚠️ 로그아웃 API 응답 오류:', response.status);
             }
 
-            if (logoutSuccess) {
-                // 로그아웃 성공 시 토큰 제거 및 성공 콜백 실행
-                localStorage.removeItem('access_token');
-                onSuccess();
-            } else {
-                // 모든 provider 로그아웃 실패 시에도 토큰 제거하고 로그인 페이지로 이동
-                // (일부 provider는 로그아웃 API가 없을 수 있으므로 정상적인 경우일 수 있음)
-                console.info('ℹ️ 모든 provider 로그아웃 시도 완료, 로컬 토큰 제거합니다.');
-                localStorage.removeItem('access_token');
-                // 에러 콜백을 호출하지 않고 바로 성공 처리 (정상적인 플로우)
-                onSuccess(); // 로그인 페이지로 이동
-            }
+            // Access Token 삭제 (Zustand 메모리에서)
+            clearAccessToken();
+            console.log('✅ Access Token 삭제 완료');
+
+            onSuccess();
+
         } catch (err) {
-            // 예상치 못한 에러 발생 시에만 에러 콜백 호출
-            console.warn('⚠️ 로그아웃 처리 중 예상치 못한 오류:', err);
-            localStorage.removeItem('access_token');
-            // 에러가 발생해도 로그인 페이지로 이동은 유지 (사용자 경험 우선)
+            // 에러가 발생해도 토큰은 삭제하고 로그인 페이지로 이동
+            console.warn('⚠️ 로그아웃 처리 중 오류:', err);
+            clearAccessToken();
             onSuccess(); // 로그인 페이지로 이동
-            // onError는 호출하지 않음 (에러 페이지 표시 방지)
         }
     }
 
@@ -187,7 +176,8 @@ export const createSocialLoginHandlers = (() => {
 
         // 로그아웃 핸들러 (이너 함수 - 함수 선언식)
         function handleLogoutRequest(onSuccess: () => void, onError?: (error: string) => void) {
-            const token = localStorage.getItem('access_token');
+            // Zustand 스토어에서 토큰 조회 (메모리)
+            const token = getAccessToken();
             if (!token) {
                 // 토큰이 없으면 바로 성공 처리 (이미 로그아웃된 상태)
                 onSuccess();

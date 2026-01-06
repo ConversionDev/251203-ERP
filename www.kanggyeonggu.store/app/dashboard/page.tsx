@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useAuthStore } from '@/store/authStore';
 
 function DashboardContent() {
     const router = useRouter();
@@ -11,6 +12,9 @@ function DashboardContent() {
     const [userInfo, setUserInfo] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [loginSuccess, setLoginSuccess] = useState(false);
+
+    // Zustand 스토어에서 토큰 관리 (메모리 저장, XSS 방어)
+    const { accessToken, setAccessToken, clearAccessToken, refreshAccessToken } = useAuthStore();
 
     // 토큰 처리 및 사용자 정보 조회
     useEffect(() => {
@@ -29,9 +33,9 @@ function DashboardContent() {
                 }
 
                 if (tokenFromUrl) {
-                    // 토큰을 localStorage에 저장
-                    localStorage.setItem('access_token', tokenFromUrl);
-                    console.log('✅ 토큰 저장 성공:', tokenFromUrl.substring(0, 20) + '...');
+                    // 토큰을 Zustand 스토어에 저장 (메모리만, XSS 방어)
+                    setAccessToken(tokenFromUrl);
+                    console.log('✅ 토큰 저장 성공 (Zustand 메모리):', tokenFromUrl.substring(0, 20) + '...');
                     console.log('✅ 소셜 로그인 성공! 토큰이 정상적으로 받아졌습니다.');
 
                     // 로그인 성공 상태 설정
@@ -43,11 +47,30 @@ function DashboardContent() {
                     return;
                 }
 
-                // 2. localStorage에서 토큰 가져오기
-                const token = localStorage.getItem('access_token');
+                // 2. Zustand 스토어에서 토큰 가져오기 (메모리)
+                let token = accessToken;
+
+                // 3. 토큰이 없으면 Refresh Token(HttpOnly 쿠키)으로 갱신 시도
+                if (!token) {
+                    console.log('🔄 Access Token 없음, Refresh Token으로 갱신 시도...');
+                    const refreshed = await refreshAccessToken();
+
+                    if (refreshed) {
+                        // 갱신 성공: Zustand에서 새 토큰 가져오기
+                        token = useAuthStore.getState().accessToken;
+                        console.log('✅ 토큰 갱신 성공');
+                    } else {
+                        // 갱신 실패: 로그인 페이지로 이동
+                        console.log('❌ 토큰 갱신 실패, 로그인 페이지로 이동');
+                        setError('인증이 필요합니다.');
+                        setLoginSuccess(false);
+                        router.push('/login');
+                        return;
+                    }
+                }
 
                 if (!token) {
-                    // 토큰이 없으면 로그인 페이지로 이동
+                    // 여전히 토큰이 없으면 로그인 페이지로 이동
                     setError('인증이 필요합니다.');
                     setLoginSuccess(false);
                     router.push('/login');
@@ -108,7 +131,7 @@ function DashboardContent() {
                     }
                 } else if (response.status === 401) {
                     console.error('❌ 인증 실패 (401)');
-                    localStorage.removeItem('access_token');
+                    clearAccessToken();
                     setError('인증이 필요합니다.');
                     router.push('/login');
                 } else {
@@ -136,7 +159,7 @@ function DashboardContent() {
         };
 
         initialize();
-    }, [router, searchParams]);
+    }, [router, searchParams, accessToken, setAccessToken, clearAccessToken, refreshAccessToken]);
 
     // 로딩 중
     if (isLoading) {

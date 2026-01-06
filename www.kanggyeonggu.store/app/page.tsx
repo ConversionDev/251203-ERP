@@ -3,22 +3,43 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuthStore } from '@/store/authStore';
 
 export default function Home() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    // 토큰 확인
-    const token = localStorage.getItem('access_token');
-    const authenticated = !!token;
-    setIsAuthenticated(authenticated);
+  // Zustand 스토어에서 토큰 확인 (메모리 저장, XSS 방어)
+  const { accessToken, refreshAccessToken } = useAuthStore();
 
-    // 로그인된 경우 - 대시보드로 리다이렉트
-    if (authenticated) {
-      router.push('/dashboard');
-    }
-  }, [router]);
+  useEffect(() => {
+    const checkAuth = async () => {
+      // 1. Zustand 스토어에서 토큰 확인 (메모리)
+      let authenticated = !!accessToken;
+
+      // 2. 토큰이 없으면 Refresh Token(HttpOnly 쿠키)으로 갱신 시도
+      if (!authenticated) {
+        console.log('🔄 [Home] Access Token 없음, Refresh Token으로 갱신 시도...');
+        const refreshed = await refreshAccessToken();
+
+        if (refreshed) {
+          authenticated = true;
+          console.log('✅ [Home] 토큰 갱신 성공, 대시보드로 이동');
+        } else {
+          console.log('ℹ️ [Home] 토큰 없음, 랜딩 페이지 표시');
+        }
+      }
+
+      setIsAuthenticated(authenticated);
+
+      // 로그인된 경우 - 대시보드로 리다이렉트
+      if (authenticated) {
+        router.push('/dashboard');
+      }
+    };
+
+    checkAuth();
+  }, [router, accessToken, refreshAccessToken]);
 
   // 로딩 중
   if (isAuthenticated === null) {
