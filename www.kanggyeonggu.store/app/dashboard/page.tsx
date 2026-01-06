@@ -84,7 +84,10 @@ function DashboardContent() {
                 }
 
                 // 3. 백엔드 API로 현재 사용자 정보 조회 (통합 API 사용)
-                const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:8080';
+                const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'localhost:8080';
+                const gatewayUrl = baseUrl.startsWith('http://') || baseUrl.startsWith('https://')
+                    ? baseUrl
+                    : (baseUrl.includes('localhost') ? `http://${baseUrl}` : `https://${baseUrl}`);
 
                 console.log('🔍 사용자 정보 조회 시작, 토큰:', token.substring(0, 20) + '...');
 

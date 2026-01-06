@@ -30,7 +30,7 @@ export const createSocialLoginHandlers = (() => {
             // 디버깅: API URL 확인
             const apiUrl = `${gatewayUrl}/auth/${provider}/login`;
             console.log(`🔍 [${provider}] 로그인 요청 URL:`, apiUrl);
-            console.log(`🔍 Gateway URL 환경 변수:`, process.env.NEXT_PUBLIC_GATEWAY_URL || '설정되지 않음 (기본값: http://localhost:8080)');
+            console.log(`🔍 API URL 환경 변수:`, process.env.NEXT_PUBLIC_API_URL || '설정되지 않음 (기본값: localhost:8080)');
 
             // Gateway의 /auth/{provider}/login 엔드포인트 호출하여 로그인 URL 받기
             const response = await fetch(apiUrl, {
@@ -65,7 +65,7 @@ export const createSocialLoginHandlers = (() => {
                 message: err instanceof Error ? err.message : String(err),
                 gatewayUrl: gatewayUrl,
                 apiUrl: `${gatewayUrl}/auth/${provider}/login`,
-                envVar: process.env.NEXT_PUBLIC_GATEWAY_URL || '설정되지 않음'
+                envVar: process.env.NEXT_PUBLIC_API_URL || '설정되지 않음'
             });
 
             // 더 구체적인 에러 메시지

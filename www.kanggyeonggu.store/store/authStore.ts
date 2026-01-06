@@ -59,8 +59,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isRefreshing: true });
 
         try {
-            const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:8080';
-            console.log('🔄 [Zustand] Access Token 갱신 시도... Gateway URL:', gatewayUrl);
+            // API URL 생성
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'localhost:8080';
+            const gatewayUrl = baseUrl.startsWith('http://') || baseUrl.startsWith('https://')
+                ? baseUrl
+                : (baseUrl.includes('localhost') ? `http://${baseUrl}` : `https://${baseUrl}`);
+            console.log('🔄 [Zustand] Access Token 갱신 시도... API URL:', gatewayUrl);
 
             const response = await fetch(`${gatewayUrl}/api/auth/refresh`, {
                 method: 'POST',

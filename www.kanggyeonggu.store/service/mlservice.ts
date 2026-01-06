@@ -3,7 +3,16 @@
  * Titanic 분석 관련 API 호출 함수들
  */
 
-const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:8080';
+// API URL 헬퍼 함수
+const getApiBaseUrl = () => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'localhost:8080';
+    if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
+        return baseUrl;
+    }
+    return baseUrl.includes('localhost') ? `http://${baseUrl}` : `https://${baseUrl}`;
+};
+
+const gatewayUrl = getApiBaseUrl();
 const mlApiBase = `${gatewayUrl}/api/ml/titanic`;
 
 // 타입 정의
