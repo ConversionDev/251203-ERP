@@ -2,9 +2,20 @@
 
 import { getAccessToken, clearAccessToken } from '@/store/authStore';
 
+// API URL 헬퍼 함수
+const getApiBaseUrl = () => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'localhost:8080';
+    // 이미 프로토콜이 있으면 그대로 사용, 없으면 추가
+    if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
+        return baseUrl;
+    }
+    // localhost면 http, 아니면 https
+    return baseUrl.includes('localhost') ? `http://${baseUrl}` : `https://${baseUrl}`;
+};
+
 export const createSocialLoginHandlers = (() => {
     // IIFE 내부: 공통 설정 및 변수 (private 스코프)
-    const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:8080';
+    const gatewayUrl = getApiBaseUrl();
 
     // 공통 로그인 처리 로직 (private 헬퍼 함수)
     async function handleLogin(
