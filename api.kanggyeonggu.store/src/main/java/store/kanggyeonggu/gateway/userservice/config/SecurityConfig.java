@@ -42,7 +42,9 @@ public class SecurityConfig {
                                                                 "/swagger-ui.html", // Swagger UI (구버전)
                                                                 "/docs/api-docs/**", // OpenAPI JSON
                                                                 "/auth/**", // OAuth 로그인 (카카오, 네이버, 구글)
-                                                                "/oauth2/**" // OAuth 콜백
+                                                                "/oauth2/**", // OAuth 콜백
+                                                                "/api/auth/refresh", // Access Token 갱신
+                                                                "/api/auth/logout" // 로그아웃
                                                 ).permitAll()
                                                 // 나머지 요청은 인증 필요
                                                 .anyRequest().authenticated())
@@ -55,12 +57,11 @@ public class SecurityConfig {
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
                 configuration.setAllowedOrigins(List.of(
-                        "http://localhost:3000",
-                        "http://localhost:4000",
-                        "https://www.kanggyeonggu.store",
-                        "https://kanggyeonggu.store",
-                        "https://251203-erp.vercel.app"
-                ));
+                                "http://localhost:3000",
+                                "http://localhost:3000",
+                                "https://www.kanggyeonggu.store",
+                                "https://kanggyeonggu.store",
+                                "https://251203-erp.vercel.app"));
                 configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 configuration.setAllowedHeaders(List.of("*"));
                 configuration.setAllowCredentials(true);
