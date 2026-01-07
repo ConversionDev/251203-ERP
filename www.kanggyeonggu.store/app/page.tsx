@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/store/StoreProvider';
+import { refreshAccessToken } from '@/service/mainservice';
 
 export default function Home() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   // Zustand 스토어에서 토큰 확인 (메모리 저장, XSS 방어)
-  const { accessToken, refreshAccessToken } = useAuthStore();
+  const accessToken = useAuthStore((state) => state.accessToken);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -39,7 +40,7 @@ export default function Home() {
     };
 
     checkAuth();
-  }, [router, accessToken, refreshAccessToken]);
+  }, [router, accessToken]);
 
   // 로딩 중
   if (isAuthenticated === null) {

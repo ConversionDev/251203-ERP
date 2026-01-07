@@ -1,6 +1,6 @@
 // 소셜 로그인 핸들러 함수들 (IIFE 패턴)
 
-import { getAccessToken, clearAccessToken } from '@/store/authStore';
+import { getAccessToken, clearAccessToken, setAccessToken } from '@/store/StoreProvider';
 
 // API URL 헬퍼 함수
 const getApiBaseUrl = () => {
@@ -12,6 +12,41 @@ const getApiBaseUrl = () => {
     // localhost면 http, 아니면 https
     return baseUrl.includes('localhost') ? `http://${baseUrl}` : `https://${baseUrl}`;
 };
+
+// ========================================
+// Refresh Token으로 Access Token 갱신
+// HttpOnly 쿠키에 저장된 Refresh Token을 사용
+// ========================================
+export async function refreshAccessToken(): Promise<boolean> {
+    try {
+        const gatewayUrl = getApiBaseUrl();
+        console.log('🔄 [Service] Access Token 갱신 시도... API URL:', gatewayUrl);
+
+        const response = await fetch(`${gatewayUrl}/api/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include', // HttpOnly 쿠키 자동 전송
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.accessToken) {
+                setAccessToken(data.accessToken);
+                console.log('✅ [Service] Access Token 갱신 성공');
+                return true;
+            }
+        }
+
+        console.log('❌ [Service] Access Token 갱신 실패:', response.status);
+        return false;
+
+    } catch (error) {
+        console.error('❌ [Service] Token refresh 오류:', error);
+        return false;
+    }
+}
 
 export const createSocialLoginHandlers = (() => {
     // IIFE 내부: 공통 설정 및 변수 (private 스코프)

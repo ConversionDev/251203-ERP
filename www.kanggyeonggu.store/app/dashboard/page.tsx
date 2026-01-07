@@ -3,7 +3,8 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, useAuthStoreApi } from '@/store/StoreProvider';
+import { refreshAccessToken } from '@/service/mainservice';
 
 function DashboardContent() {
     const router = useRouter();
@@ -14,7 +15,10 @@ function DashboardContent() {
     const [loginSuccess, setLoginSuccess] = useState(false);
 
     // Zustand 스토어에서 토큰 관리 (메모리 저장, XSS 방어)
-    const { accessToken, setAccessToken, clearAccessToken, refreshAccessToken } = useAuthStore();
+    const accessToken = useAuthStore((state) => state.accessToken);
+    const setAccessToken = useAuthStore((state) => state.setAccessToken);
+    const clearAccessToken = useAuthStore((state) => state.clearAccessToken);
+    const storeApi = useAuthStoreApi();
 
     // 토큰 처리 및 사용자 정보 조회
     useEffect(() => {
@@ -57,7 +61,7 @@ function DashboardContent() {
 
                     if (refreshed) {
                         // 갱신 성공: Zustand에서 새 토큰 가져오기
-                        token = useAuthStore.getState().accessToken;
+                        token = storeApi.getState().accessToken;
                         console.log('✅ 토큰 갱신 성공');
                     } else {
                         // 갱신 실패: 로그인 페이지로 이동
@@ -162,7 +166,7 @@ function DashboardContent() {
         };
 
         initialize();
-    }, [router, searchParams, accessToken, setAccessToken, clearAccessToken, refreshAccessToken]);
+    }, [router, searchParams, accessToken, setAccessToken, clearAccessToken, storeApi]);
 
     // 로딩 중
     if (isLoading) {
